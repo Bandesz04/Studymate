@@ -1,17 +1,21 @@
-// models/QuizResult.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const quizResultSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     noteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Note', required: true },
-    score: { type: Number, required: true },
-    answers: [
-        {
-            questionId: String,
-            selectedAnswer: String
-        }
-    ],
-    createdAt: { type: Date, default: Date.now }
+
+    attemptsCount: { type: Number, default: 0 },
+    bestScore: { type: Number, default: 0 },
+
+    lastScore: { type: Number, default: 0 },
+
+    attemptCorrectCount: { type: Number, default: 0 },
+    attemptAnsweredCount: { type: Number, default: 0 },
+
+    bestAttemptCorrectCount: { type: Number, default: 0 },
+    bestAttemptAnsweredCount: { type: Number, default: 0 },
+
+    updatedAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('QuizResult', quizResultSchema);
+export default mongoose.model('QuizResult', quizResultSchema);

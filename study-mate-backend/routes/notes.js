@@ -1,29 +1,13 @@
-// routes/notes.js
-const express = require("express");
+import express from 'express';
+import auth from '../middleware/auth.js';
+import { getNotes, getNoteById, createNote, updateNote, deleteNote } from '../controllers/notesController.js';
+
 const router = express.Router();
-const auth = require("../middleware/auth");
 
-const {
-    getNotes,
-    getNoteById,
-    createNote,
-    updateNote,
-    deleteNote
-} = require("../controllers/notesController");
+router.get('/', auth, getNotes);
+router.get('/:id', auth, getNoteById);
+router.post('/', auth, createNote);
+router.put('/:id', auth, updateNote);
+router.delete('/:id', auth, deleteNote);
 
-// Összes jegyzet
-router.get("/", auth, getNotes);
-
-// Egy jegyzet ID alapján
-router.get("/:id", auth, getNoteById);
-
-// Új jegyzet létrehozása
-router.post("/", auth, createNote);
-
-// Jegyzet frissítése
-router.put("/:id", auth, updateNote);
-
-// Jegyzet törlése
-router.delete("/:id", auth, deleteNote);
-
-module.exports = router;
+export default router;

@@ -1,19 +1,16 @@
-// models/Note.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const noteSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     title: { type: String, required: true },
     content: { type: String },
     summary: { type: String },
-    quizQuestions: [
-        {
-            question: String,
-            options: [String],
-            correctAnswer: String
-        }
-    ],
+    quizQuestions: [{
+        question: { type: String, required: true },
+        options: { type: [String], required: true },
+        correctAnswer: { type: String, required: true }
+    }],
     createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Note', noteSchema);
+export default mongoose.model('Note', noteSchema);

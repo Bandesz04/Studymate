@@ -1,16 +1,11 @@
-// routes/quiz.js
-const express = require('express');
+import express from 'express';
+import auth from '../middleware/auth.js';
+import { submitQuiz, getQuizResults, getQuizResultById } from '../controllers/quizController.js';
+
 const router = express.Router();
-const auth = require('../middleware/auth');
-const quizController = require('../controllers/quizController');
 
-// POST /api/quiz/:noteId/submit -> kvíz beküldése
-router.post('/:noteId/submit', auth, quizController.submitQuiz);
+router.post('/:noteId/submit', auth, submitQuiz);
+router.get('/results', auth, getQuizResults);
+router.get('/:id', auth, getQuizResultById);
 
-// GET /api/quiz/results -> az összes saját kvíz eredmény lekérése
-router.get('/results', auth, quizController.getQuizResults);
-
-// GET /api/quiz/:id -> egy adott kvíz eredmény lekérése
-router.get('/:id', auth, quizController.getQuizResultById);
-
-module.exports = router;
+export default router;

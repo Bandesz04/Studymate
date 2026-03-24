@@ -1,0 +1,5 @@
+export const QUIZ_CONFIG = {
+    MAX_QUESTIONS: 30,
+    WORDS_PER_QUESTION: 40,
+    MIN_QUESTIONS: 5
+};

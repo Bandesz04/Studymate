@@ -1,75 +1,128 @@
-// controllers/notesController.js
-const Note = require('../models/Note');
+import Note from '../models/Note.js';
 
-// Összes saját jegyzet lekérése
-exports.getNotes = async (req, res) => {
+export async function getNotes(req, res) {
     try {
-        const notes = await Note.find({ userId: req.user.id }).sort({ createdAt: -1 });
-        res.json(notes);
+        const notes = await Note
+            .find({ userId: req.user.id })
+            .sort({ createdAt: -1 });
+
+        res.json({
+            success: true,
+            data: notes
+        });
     } catch (err) {
-        res.status(500).json({ msg: err.message });
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
     }
-};
+}
 
-// Egy jegyzet lekérése
-exports.getNoteById = async (req, res) => {
+export async function getNoteById(req, res) {
     try {
-        const note = await Note.findById(req.params.id);
-        if (!note) return res.status(404).json({ msg: 'Note not found' });
-        if (note.userId.toString() !== req.user.id) return res.status(401).json({ msg: 'Not authorized' });
-        res.json(note);
+        const note = await Note.findOne({
+            _id: req.params.id,
+            userId: req.user.id
+        });
+
+        if (!note) {
+            return res.status(404).json({
+                success: false,
+                error: 'Note not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: note
+        });
     } catch (err) {
-        res.status(500).json({ msg: err.message });
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
     }
-};
+}
 
-// Új jegyzet létrehozása
-exports.createNote = async (req, res) => {
-    const { title, content } = req.body;
+export async function createNote(req, res) {
     try {
+        const { title, content } = req.body;
+
         const newNote = new Note({
             userId: req.user.id,
             title,
             content
         });
-        await newNote.save();
-        res.json(newNote);
-    } catch (err) {
-        res.status(500).json({ msg: err.message });
-    }
-};
 
-// Jegyzet frissítése
-exports.updateNote = async (req, res) => {
-    const { title, content } = req.body;
+        await newNote.save();
+
+        res.status(201).json({
+            success: true,
+            data: newNote
+        });
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+}
+
+export async function updateNote(req, res) {
     try {
-        const note = await Note.findById(req.params.id);
-        if (!note) return res.status(404).json({ msg: 'Note not found' });
-        if (note.userId.toString() !== req.user.id) return res.status(401).json({ msg: 'Not authorized' });
+        const { title, content } = req.body;
+
+        const note = await Note.findOne({
+            _id: req.params.id,
+            userId: req.user.id
+        });
+
+        if (!note) {
+            return res.status(404).json({
+                success: false,
+                error: 'Note not found'
+            });
+        }
 
         note.title = title || note.title;
         note.content = content || note.content;
 
         await note.save();
-        res.json(note);
-    } catch (err) {
-        res.status(500).json({ msg: err.message });
-    }
-};
 
-// Jegyzet törlése
-exports.deleteNote = async (req, res) => {
+        res.json({
+            success: true,
+            data: note
+        });
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+}
+
+export async function deleteNote(req, res) {
     try {
-        const note = await Note.findById(req.params.id);
-        if (!note) return res.status(404).json({ msg: 'Note not found' });
-        if (note.userId.toString() !== req.user.id) return res.status(401).json({ msg: 'Not authorized' });
+        const note = await Note.findOneAndDelete({
+            _id: req.params.id,
+            userId: req.user.id
+        });
 
-        // Eredeti: await note.remove();
-        // Javított:
-        await Note.findByIdAndDelete(req.params.id);
+        if (!note) {
+            return res.status(404).json({
+                success: false,
+                error: 'Note not found'
+            });
+        }
 
-        res.json({ msg: 'Note removed' });
+        res.json({
+            success: true,
+            data: { message: 'Note removed' }
+        });
     } catch (err) {
-        res.status(500).json({ msg: err.message });
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
     }
-};
+}

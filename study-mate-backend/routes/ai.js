@@ -1,13 +1,19 @@
-// routes/ai.js
-const express = require('express');
+import express from 'express';
+import rateLimit from 'express-rate-limit';
+import auth from '../middleware/auth.js';
+import { generateNoteFromText, generateQuiz } from '../controllers/aiController.js';
+
 const router = express.Router();
-const auth = require('../middleware/auth');
-const aiController = require('../controllers/aiController');
 
-// Egy jegyzet + summary generálása
-router.post('/generate', auth, aiController.generateNoteFromText);
+const aiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Túl sok AI kérés rövid időn belül. Kérlek próbáld meg később.' }
+});
 
-// Quiz generálás meglévő jegyzethez
-router.post('/quiz', auth, aiController.generateQuiz);
+router.post('/generate', auth, aiLimiter, generateNoteFromText);
+router.post('/quiz', auth, aiLimiter, generateQuiz);
 
-module.exports = router;
+export default router;

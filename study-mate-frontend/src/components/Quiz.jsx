@@ -1,214 +1,227 @@
-import React, { useState, useEffect } from 'react';
-import { FiCheck, FiX, FiRefreshCw } from 'react-icons/fi';
+import React, { useEffect, useMemo, useState } from "react";
+import { FiCheck, FiX, FiRefreshCw } from "react-icons/fi";
+import { useApi } from "../hooks/useApi";
 
 const Quiz = ({ noteId, questions, initialCount = 5, questionsPerBatch = 3 }) => {
-    const [displayedQuestions, setDisplayedQuestions] = useState([]);
-    const [selectedAnswers, setSelectedAnswers] = useState({});
-    const [submittedQuestions, setSubmittedQuestions] = useState(new Set());
-    const [score, setScore] = useState(null);
-    const [submitting, setSubmitting] = useState(false);
-    const [totalCorrect, setTotalCorrect] = useState(0);
+  const api = useApi();
+  const [displayedQuestions, setDisplayedQuestions] = useState([]);
+  const [selectedAnswers, setSelectedAnswers] = useState({});
+  const [evaluated, setEvaluated] = useState({});
+  const [correctAnswers, setCorrectAnswers] = useState({});
+  const [quizStats, setQuizStats] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
-    // Betöltjük az első batch-et
-    useEffect(() => {
-        if (questions && questions.length > 0) {
-            const firstBatch = questions.slice(0, initialCount);
-            setDisplayedQuestions(firstBatch);
-        }
-    }, [questions, initialCount]);
+  const toKey = (id) => (id?.toString?.() ?? id);
 
-    const getCorrectText = (question) => {
-        const ans = question.correctAnswer ? question.correctAnswer.trim() : "";
-        if (ans === 'A' && question.options.length > 0) return question.options[0];
-        if (ans === 'B' && question.options.length > 1) return question.options[1];
-        if (ans === 'C' && question.options.length > 2) return question.options[2];
-        if (ans === 'D' && question.options.length > 3) return question.options[3];
-        return ans;
-    };
+  useEffect(() => {
+    if (questions?.length) setDisplayedQuestions(questions.slice(0, initialCount));
+  }, [questions, initialCount]);
 
-    const handleSelect = (index, option) => {
-        if (submittedQuestions.has(index)) return;
-        setSelectedAnswers({ ...selectedAnswers, [index]: option });
-    };
+  useEffect(() => {
+    setHasSubmitted(false);
+    setSelectedAnswers({});
+    setEvaluated({});
+    setCorrectAnswers({});
+    setQuizStats(null);
+  }, [noteId]);
 
-    const handleSubmitQuiz = async () => {
-        const currentBatch = displayedQuestions
-            .map((q, i) => ({ q, i }))
-            .filter(({ i }) => !submittedQuestions.has(i));
+  const pendingQuestions = useMemo(() => {
+    return displayedQuestions.filter((q) => !(toKey(q._id) in evaluated));
+  }, [displayedQuestions, evaluated]);
 
-        if (currentBatch.length === 0) return; // nincs új kérdés -> ne értékeljünk
+  const allAnswered = pendingQuestions.every((q) => selectedAnswers[toKey(q._id)]);
+  const hasPending = pendingQuestions.length > 0;
 
-        const unansweredIndices = currentBatch.map(({ i }) => i)
-            .filter(i => !selectedAnswers[i]);
-        if (unansweredIndices.length > 0) return; // válaszolj minden új kérdésre
+  const handleSelect = (questionId, option) => {
+    const qKey = toKey(questionId);
+    if (qKey in evaluated) return;
+    setSelectedAnswers((prev) => ({ ...prev, [qKey]: option }));
+  };
 
-        setSubmitting(true);
+  const handleSubmitQuiz = async () => {
+    if (!hasPending) return;
+    if (!allAnswered) return;
 
-        let correctCount = 0;
-        currentBatch.forEach(({ q, i }) => {
-            const selected = selectedAnswers[i];
-            const correct = getCorrectText(q);
-            if (selected === correct) correctCount++;
-        });
+    const answersPayload = pendingQuestions.map((q) => ({
+      questionId: toKey(q._id),
+      selectedAnswer: selectedAnswers[toKey(q._id)],
+    }));
 
-        // Frissítjük az összesített eredményt
-        const newTotalCorrect = totalCorrect + correctCount;
-        const newTotalQuestions = submittedQuestions.size + currentBatch.length;
-        const calculatedScore = Math.round((newTotalCorrect / newTotalQuestions) * 100);
+    setSubmitting(true);
+    try {
+      const res = await api(`/api/quiz/${noteId}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          answers: answersPayload,
+          isFirstSubmission: !hasSubmitted,
+        }),
+      });
 
-        setTotalCorrect(newTotalCorrect);
-        setScore(calculatedScore);
+      if (!res.ok) throw new Error("Quiz submit failed");
 
-        try {
-            const token = localStorage.getItem("token");
-            const answersPayload = currentBatch.map(({ q, i }) => ({
-                questionId: q._id || i.toString(),
-                selectedAnswer: selectedAnswers[i] || ""
-            }));
+      const json = await res.json();
+      const result = json.data ?? json;
 
-            await fetch(`/api/quiz/${noteId}/submit`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-auth-token": token
-                },
-                body: JSON.stringify({
-                    score: calculatedScore,
-                    answers: answersPayload
-                })
-            });
+      const nextEvaluated = { ...evaluated };
+      const nextCorrectAnswers = { ...correctAnswers };
 
-            // Jelöljük ki az értékelt kérdéseket
-            setSubmittedQuestions(prev => new Set([...prev, ...currentBatch.map(c => c.i)]));
-        } catch (err) {
-            console.error("Hiba a mentéskor:", err);
-        } finally {
-            setSubmitting(false);
-        }
-    };
+      (result.evaluatedAnswers || []).forEach((a) => {
+        const qId = toKey(a.questionId);
+        if (!qId) return;
+        nextEvaluated[qId] = a.isCorrect;
+        if (a.correctAnswer !== undefined) nextCorrectAnswers[qId] = a.correctAnswer;
+      });
 
-    const handleNextQuestions = () => {
-        const currentLength = displayedQuestions.length;
-        const nextBatch = questions.slice(currentLength, currentLength + questionsPerBatch);
-        if (nextBatch.length === 0) return;
+      setEvaluated(nextEvaluated);
+      setCorrectAnswers(nextCorrectAnswers);
+      setQuizStats({
+        attemptsCount: result.attemptsCount ?? 0,
+        bestScore: result.bestScore ?? 0,
+        bestAttemptCorrectCount: result.bestAttemptCorrectCount ?? 0,
+        bestAttemptAnsweredCount: result.bestAttemptAnsweredCount ?? 0,
+        lastScore: result.lastScore ?? 0,
+        updatedAt: result.updatedAt ?? null,
+      });
 
-        setDisplayedQuestions(prev => [...prev, ...nextBatch]);
-    };
+      setHasSubmitted(true);
+    } catch (err) {
+      console.error("Quiz submit error:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-    const getOptionStyle = (qIndex, option) => {
-        const question = displayedQuestions[qIndex];
-        const correctAnswer = getCorrectText(question);
-        const isSelected = selectedAnswers[qIndex] === option;
-        const isSubmitted = submittedQuestions.has(qIndex);
+  const handleNextQuestions = () => {
+    const currentLength = displayedQuestions.length;
+    const nextBatch = questions.slice(currentLength, currentLength + questionsPerBatch);
+    if (nextBatch.length) setDisplayedQuestions((prev) => [...prev, ...nextBatch]);
+  };
 
-        if (!isSubmitted) {
-            return isSelected
-                ? "border-orange-500"
-                : "border-gray-200 bg-gray-50 hover:bg-gray-100";
-        }
+  const evaluatedDisplayed = displayedQuestions.filter((q) => toKey(q._id) in evaluated);
+  const correctDisplayedCount = evaluatedDisplayed.filter((q) => evaluated[toKey(q._id)]).length;
+  const displayedPercentage =
+    evaluatedDisplayed.length > 0 ? Math.round((correctDisplayedCount / evaluatedDisplayed.length) * 100) : null;
 
-        if (isSubmitted) {
-            if (option === correctAnswer) return "border-green-500";
-            if (isSelected && option !== correctAnswer) return "border-red-500";
-        }
+  const getOptionClass = (questionId, option) => {
+    const qKey = toKey(questionId);
+    const isSelected = selectedAnswers[qKey] === option;
+    const isEvaluated = qKey in evaluated;
+    const correctAnswer = correctAnswers[qKey];
 
-        return "opacity-50";
-    };
+    if (!isEvaluated) {
+      return isSelected
+        ? "border-orange-600 dark:border-green-400"
+        : "border-gray-200 bg-gray-50 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800";
+    }
 
-    const allAnsweredCurrentBatch = displayedQuestions
-        .map((_, i) => i)
-        .filter(i => !submittedQuestions.has(i))
-        .every(i => selectedAnswers[i]);
+    if (correctAnswer && option === correctAnswer) {
+      return "border-green-500 bg-green-50 dark:border-green-400 dark:bg-green-900/20";
+    }
 
-    if (!questions || questions.length === 0) return null;
+    if (isSelected && !evaluated[qKey]) {
+      return "border-red-500 bg-red-50 dark:border-red-500 dark:bg-red-900/20";
+    }
 
-    return (
-        <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-bold text-gray-800">Kvíz</h2>
-            </div>
+    return "opacity-60";
+  };
 
-            <div className="space-y-10">
-                {displayedQuestions.map((item, index) => (
-                    <div key={index}>
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4 ml-1 flex items-start">
-                            <span className="text-orange-500 mr-2">{index + 1}.</span>
-                            {item.question}
-                        </h3>
+  if (!questions?.length) return null;
 
-                        <div className="space-y-3">
-                            {item.options.map((option, optIndex) => {
-                                const styleClass = getOptionStyle(index, option);
-                                const correctAnswer = getCorrectText(item);
-                                const isSelected = selectedAnswers[index] === option;
-                                const isSubmitted = submittedQuestions.has(index);
+  return (
+    <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+      <h2 className="text-2xl font-bold mb-8 text-orange-600 dark:text-green-400">Kvíz</h2>
 
-                                return (
-                                    <div
-                                        key={optIndex}
-                                        onClick={() => handleSelect(index, option)}
-                                        className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${styleClass}`}
-                                    >
-                                        <div
-                                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-4 flex-shrink-0
-                                                ${isSubmitted && option === correctAnswer
-                                                    ? "border-green-600 bg-green-600 text-white"
-                                                    : isSubmitted && isSelected && option !== correctAnswer
-                                                    ? "border-red-500 bg-red-500 text-white"
-                                                    : isSelected
-                                                    ? "border-orange-500"
-                                                    : "border-gray-300"
-                                                }`}
-                                        >
-                                            {isSubmitted && option === correctAnswer
-                                                ? <FiCheck size={14} />
-                                                : isSubmitted && isSelected && option !== correctAnswer
-                                                    ? <FiX size={14} />
-                                                    : isSelected && <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />}
-                                        </div>
-                                        <span className="font-medium">{option}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
+      {displayedQuestions.map((q, idx) => {
+        const qKey = toKey(q._id);
+        const isEvaluated = qKey in evaluated;
+        const selected = selectedAnswers[qKey];
+        const correctAnswer = correctAnswers[qKey];
+
+        return (
+          <div key={q._id} className="mb-10">
+            <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">
+              <span className="text-orange-600 dark:text-green-400 mr-2">{idx + 1}.</span>
+              {q.question}
+            </h3>
+
+            {q.options.map((opt, i) => (
+              <div
+                key={i}
+                onClick={() => handleSelect(q._id, opt)}
+                className={`p-4 border-2 rounded-xl mb-2 transition text-gray-900 dark:text-gray-100 ${
+                  isEvaluated ? "select-none" : "cursor-pointer"
+                } ${getOptionClass(q._id, opt)}`}
+              >
+                {opt}
+              </div>
+            ))}
+
+            {isEvaluated && (
+              <div className="mt-3 text-sm">
+                {evaluated[qKey] ? (
+                  <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-medium">
+                    <FiCheck /> Helyes
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1 text-red-700 dark:text-red-400 font-medium">
+                    <div className="flex items-center gap-2">
+                      <FiX /> Helytelen
                     </div>
-                ))}
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col items-center">
-                <div className="w-full flex flex-col items-end gap-2">
-                    <button
-                        onClick={handleSubmitQuiz}
-                        disabled={!allAnsweredCurrentBatch || submitting}
-                        className={`px-8 py-3 font-bold rounded-xl transition-all shadow-lg
-                            ${allAnsweredCurrentBatch
-                                ? "bg-orange-600 text-white hover:bg-orange-700 hover:shadow-orange-200 cursor-pointer"
-                                : "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
-                            }`}
-                    >
-                        {submitting ? "Kiértékelés..." : "Kvíz Kiértékelése"}
-                    </button>
-                    {!allAnsweredCurrentBatch && <span className="text-sm text-gray-400">Válaszolj minden új kérdésre a kiértékeléshez</span>}
-                </div>
-
-                {/* Összesített eredmény */}
-                {score !== null && (
-                    <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 text-lg font-semibold text-center">
-                        Helyes válaszok: {totalCorrect} / {submittedQuestions.size} ({score}%)
-                    </div>
+                    {correctAnswer && (
+                      <div className="text-gray-600 dark:text-gray-300 font-normal">
+                        Helyes válasz: <span className="font-medium">{correctAnswer}</span>
+                      </div>
+                    )}
+                  </div>
                 )}
+              </div>
+            )}
+          </div>
+        );
+      })}
 
-                {displayedQuestions.length < questions.length && (
-                    <button
-                        onClick={handleNextQuestions}
-                        className="mt-4 px-6 py-2 bg-gray-800 hover:bg-gray-900 text-white font-medium rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                    >
-                        <FiRefreshCw /> Újabb kérdések generálása
-                    </button>
-                )}
-            </div>
-        </div>
-    );
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <button
+          onClick={handleSubmitQuiz}
+          disabled={!allAnswered || submitting || !hasPending}
+          className="px-8 py-3 bg-orange-600 text-white rounded-xl transition-colors disabled:opacity-60 disabled:cursor-default enabled:cursor-pointer enabled:hover:bg-orange-700 dark:bg-green-600 dark:enabled:hover:bg-green-700"
+        >
+          {submitting ? "Kiértékelés..." : "Kvíz kiértékelése"}
+        </button>
+
+        {displayedPercentage !== null && (
+          <div className="text-sm text-gray-800 dark:text-gray-100">
+            <span className="font-semibold">
+              <span className="text-orange-600 dark:text-green-400">Eredmény:</span>{" "}
+              <span>{displayedPercentage}%</span>{" "}
+              <span className="text-gray-600 dark:text-gray-300 font-normal">
+                ({correctDisplayedCount}/{evaluatedDisplayed.length} helyes)
+              </span>
+            </span>
+            {quizStats && (
+              <span className="ml-3 text-gray-600 dark:text-gray-300 font-normal">
+                Próbálkozások: {quizStats.attemptsCount}, Legjobb: {quizStats.bestScore}%{" "}
+                {quizStats.bestAttemptAnsweredCount > 0
+                  ? `(${quizStats.bestAttemptCorrectCount}/${quizStats.bestAttemptAnsweredCount})`
+                  : ""}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {displayedQuestions.length < questions.length && (
+        <button
+          onClick={handleNextQuestions}
+          className="mt-4 flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:text-orange-600 dark:hover:text-green-400 transition-colors cursor-pointer"
+        >
+          <FiRefreshCw /> Következő kérdések
+        </button>
+      )}
+    </div>
+  );
 };
 
 export default Quiz;

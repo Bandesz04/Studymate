@@ -11,6 +11,11 @@
 <body>
 <div id="root"></div>
 <script type="module" src="/src/main.jsx"></script>
+<script>
+    if(localStorage.getItem("studymate-theme")==="dark"){
+      document.documentElement.classList.add("dark")
+    }
+    </script>
 </body>
 
 </html>

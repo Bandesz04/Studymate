@@ -281,62 +281,64 @@ sequenceDiagram
 StudyMate/
 ├── ARCHITECTURE.md
 ├── README.md
-├── package.json              # root devDependencies (e.g. Tailwind / PostCSS)
-├── package-lock.json
 ├── study-mate-frontend/
-│   ├── index.html              # + inline theme bootstrap (dark class)
-│   └── src/
-│       ├── main.jsx            # ThemeProvider, AuthProvider, routes, layouts
-│       ├── App.jsx             # Minimal shell (not used as router root)
-│       ├── index.css           # Tailwind entry
-│       ├── contexts/
-│       │   ├── AuthContext.jsx # localStorage tokens/user, refresh, init
-│       │   └── ThemeContext.jsx
-│       ├── layouts/
-│       │   ├── AuthLayout.jsx
-│       │   └── AppLayout.jsx
-│       ├── components/
-│       │   ├── Header.jsx
-│       │   ├── PrivateRoute.jsx
-│       │   ├── Quiz.jsx
-│       │   └── ThemeToggle.jsx
-│       ├── pages/
-│       │   ├── LoginPage.jsx
-│       │   ├── RegistrationPage.jsx
-│       │   ├── MainPage.jsx
-│       │   ├── NotesPage.jsx
-│       │   └── NoteDetailPage.jsx
-│       ├── hooks/
-│       │   └── useApi.js
-│       └── utils/
-│           └── apiFetch.js
+│ ├── package.json              # frontend dependencies & devDependencies
+│ ├── package-lock.json
+│ ├── index.html                # inline theme (dark class)
+│ └── src/
+│ ├── main.jsx                  # ThemeProvider, AuthProvider, routes, layouts
+│ ├── App.jsx                   # Minimal shell (not used as router root)
+│ ├── index.css                 # Tailwind entry
+│ ├── contexts/
+│ │ ├── AuthContext.jsx         # localStorage tokens/user, refresh, init
+│ │ └── ThemeContext.jsx
+│ ├── layouts/
+│ │ ├── AuthLayout.jsx
+│ │ └── AppLayout.jsx
+│ ├── components/
+│ │ ├── Header.jsx
+│ │ ├── PrivateRoute.jsx
+│ │ ├── Quiz.jsx
+│ │ └── ThemeToggle.jsx
+│ ├── pages/
+│ │ ├── LoginPage.jsx
+│ │ ├── RegistrationPage.jsx
+│ │ ├── MainPage.jsx
+│ │ ├── NotesPage.jsx
+│ │ └── NoteDetailPage.jsx
+│ ├── hooks/
+│ │ └── useApi.js
+│ └── utils/
+│ └── apiFetch.js
 │
 └── study-mate-backend/
-    ├── app.js                  # Express app, CORS, route mounting
-    ├── bin/www
-    ├── config/
-    │   ├── db.js               # MongoDB connection
-    │   └── quizConfig.js       # AI quiz defaults
-    ├── middleware/
-    │   └── auth.js             # JWT verification
-    ├── routes/
-    │   ├── auth.js
-    │   ├── notes.js
-    │   ├── quiz.js
-    │   └── ai.js
-    ├── controllers/
-    │   ├── authController.js
-    │   ├── notesController.js
-    │   ├── quizController.js
-    │   └── aiController.js
-    ├── models/
-    │   ├── User.js
-    │   ├── Note.js
-    │   └── QuizResult.js
-    ├── ai/
-    │   ├── geminiClient.js
-    │   ├── aiRetry.js
-    │   └── aiResponseParser.js
-    └── utils/
-        └── responseHandler.js
+├── package.json                # backend dependencies & devDependencies
+├── package-lock.json
+├── app.js                      # Express app, CORS, route mounting
+├── bin/www
+├── config/
+│ ├── db.js                     # MongoDB connection
+│ └── quizConfig.js             # AI quiz defaults
+├── middleware/
+│ └── auth.js                   # JWT verification
+├── routes/
+│ ├── auth.js
+│ ├── notes.js
+│ ├── quiz.js
+│ └── ai.js
+├── controllers/
+│ ├── authController.js
+│ ├── notesController.js
+│ ├── quizController.js
+│ └── aiController.js
+├── models/
+│ ├── User.js
+│ ├── Note.js
+│ └── QuizResult.js
+├── ai/
+│ ├── geminiClient.js
+│ ├── aiRetry.js
+│ └── aiResponseParser.js
+└── utils/
+└── responseHandler.js
 ```

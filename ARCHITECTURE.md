@@ -257,7 +257,7 @@ sequenceDiagram
     participant DB as MongoDB
 
     P->>API: request (with refresh/logout)
-    API->>BE: HTTP + Authorization: Bearer &lt;token&gt;
+    API->>BE: HTTP + Authorization: `Bearer <token>`
     BE->>MW: next()
     MW->>MW: verify JWT
     alt valid
